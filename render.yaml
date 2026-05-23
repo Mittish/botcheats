@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: telegram-cheat-bot
+    runtime: python
+    repo: https://github.com/ТВОЙ_АККАУНТ/НАЗВАНИЕ_РЕПОЗИТОРИЯ
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
+    envVars:
+      - key: TELEGRAM_TOKEN
+        value: 8946909260:AAEZLpC9UgfkIMU2_5CHgm4DN3jY6nRLoLs
