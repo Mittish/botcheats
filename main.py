@@ -2,18 +2,31 @@ import os
 import json
 import asyncio
 from datetime import datetime
+from flask import Flask, request, jsonify
+from threading import Thread
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
 # ===== КОНФИГУРАЦИЯ =====
 TOKEN = os.environ.get("TELEGRAM_TOKEN", "8946909260:AAEZLpC9UgfkIMU2_5CHgm4DN3jY6nRLoLs")
 
-# Пути к файлам
+# Пути к файлам (на Render нужно использовать относительные пути)
 APK_PATH = "Installer.apk"
 EXE_PATH = "Setup.exe"
 
 # Файл для хранения статистики
 STATS_FILE = "stats.json"
+
+# Flask приложение для health check
+flask_app = Flask(__name__)
+
+@flask_app.route('/')
+def home():
+    return jsonify({"status": "ok", "message": "Bot is running!"})
+
+@flask_app.route('/health')
+def health():
+    return jsonify({"status": "alive"}), 200
 
 # ===== СИСТЕМА ЛОГИРОВАНИЯ =====
 def load_stats():
@@ -257,21 +270,30 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "noop":
         pass
 
-# ===== ЗАПУСК =====
-def main():
+# ===== ЗАПУСК ТЕЛЕГРАМ БОТА И FLASK =====
+def run_telegram_bot():
+    """Запускает Telegram бота в отдельном потоке"""
     application = Application.builder().token(TOKEN).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(button_callback))
     
-    print("\n" + "="*50)
-    print("🤖 БОТ ЗАПУЩЕН НА RENDER")
-    print("="*50)
-    print(f"📊 Всего игр в списке: {len(GAMES)}")
-    print(f"📄 Страниц: {(len(GAMES) + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE}")
-    print("🟢 Бот работает...")
-    print("="*50 + "\n")
-    
+    print("✅ Telegram бот запущен!")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
+def run_flask():
+    """Запускает Flask сервер для health check"""
+    port = int(os.environ.get("PORT", 8080))
+    flask_app.run(host="0.0.0.0", port=port)
+    print(f"✅ Flask сервер запущен на порту {port}!")
+
 if __name__ == "__main__":
-    main()
+    print("\n" + "="*50)
+    print("🤖 БОТ ЗАПУСКАЕТСЯ...")
+    print("="*50)
+    
+    # Запускаем Telegram бота в отдельном потоке
+    bot_thread = Thread(target=run_telegram_bot)
+    bot_thread.start()
+    
+    # Запускаем Flask в основном потоке (нужно для Render health check)
+    run_flask()
